@@ -10,14 +10,8 @@ import userService from "./user.service";
 import { ResponseHandler } from "../../utility/response";
 import { permit } from "../../utility/authorize";
 import { ROLES } from "../../utility/db_constants";
-import { IFileData } from "./user.types";
 import formidable from "formidable";
-import path from "path";
-import fs from "fs";
-import {
-  checkIfFolderNotExist,
-  createFolderFunction,
-} from "../../utility/storageFunctions";
+import { fileUpload } from "../../utility/fileUpload";
 
 const router = Router();
 
@@ -152,73 +146,8 @@ router.post(
     try {
       const form: any = new formidable.IncomingForm();
 
-      const email = res.locals.user.email;
-      const fileData: IFileData = {
-        fileSize: 0,
-        fileName: "",
-        fileUrl: "",
-        email: "",
-        status: "",
-        taskId: "",
-        date: new Date(),
-        cycleIndex: 0,
-      };
-
-      form.parse(req, async (err: any, fields: any, files: any) => {
-        if (!files.file) {
-          return "File Not Uploaded";
-        }
-
-        let userDir = path.join(__dirname, "..", "..", "dummyS3", email);
-
-        if (checkIfFolderNotExist(userDir)) {
-          createFolderFunction(userDir);
-        }
-        let fileName = `${Math.floor(Math.random() * 101)} ${
-          files.file.originalFilename
-        }`;
-
-        const uploadFolder = path.join(
-          __dirname,
-          "..",
-          "..",
-          "dummyS3",
-          email,
-          fileName
-        );
-
-        let fileUrl = path
-          .join("app", "dummyS3", email, files.file.originalFilename)
-          .split("\\")
-          .join("/");
-
-        fileData.fileSize = files.file.size / 1000;
-        fileData.fileName = files.file.originalFilename;
-        fileData.taskId = fields.taskId;
-        fileData.status = "625e5b81be9bb54da8934ef7";
-        fileData.email = email;
-        fileData.fileUrl = fileUrl;
-        fileData.date = fields.certificationDate;
-        fileData.cycleIndex = fields.cycleIndex;
-
-        try {
-          if (checkIfFolderNotExist(uploadFolder)) {
-            await userService.addFile(fileData);
-
-            const oldPath = files.file.filepath;
-            var rawData = fs.readFileSync(oldPath);
-
-            fs.writeFile(uploadFolder, rawData, function (err) {
-              if (err) console.log(err);
-              return res.send(new ResponseHandler("Successfully Uploaded"));
-            });
-          } else {
-            throw "File Already Exists";
-          }
-        } catch (error) {
-          next(error);
-        }
-      });
+      let result = fileUpload(form);
+      result(req, res, next);
     } catch (error) {
       next(error);
     }
